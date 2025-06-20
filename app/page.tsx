@@ -253,7 +253,7 @@ export default function Home() {
       toast.error(
         <div>
           <p>Insufficient SOL balance in your wallet!</p>
-          <p className="text-sm">You need at least 0.8SOL (incl. fee) to make this purchase</p>
+          <p className="text-sm">You need at least 3 SOL (incl. fee) to make this purchase</p>
         </div>,
       )
     }
@@ -263,7 +263,7 @@ export default function Home() {
     toast.success(
       <div>
         <p>Wallet connected successfully</p>
-        <p className="text-sm">You need at least 0.005 SOL (incl. fee) to make purchases</p>
+        <p className="text-sm">You need at least 3 SOL (incl. fee) to make purchases</p>
       </div>,
     )
     setShowWalletModal(false)
@@ -416,12 +416,10 @@ export default function Home() {
                         animate={{ opacity: 1 }}
                         transition={{ duration: 0.3 }}
                       >
-                        Error node lost, make sure your wallet is connected and substantially funded in sol at least 0.8
-                        to 5 solana and try again
+                        Error node lost, make sure your wallet is connected and substantially funded with at least 3 SOL
+                        and try again
                         <br />
-                        <span className="text-xs">
-                          Note: least starting solana varies based off region some start can use at least 0.4
-                        </span>
+                        <span className="text-xs">Note: minimum 3 SOL required for trading operations</span>
                       </motion.div>
                     )}
                   </div>
@@ -863,12 +861,10 @@ export default function Home() {
           ) : (
             // No data state - Custom error message for no search results
             <div className="py-8 text-center text-sm text-red-400 animate-pulse col-span-7 md:col-span-9">
-              Error node lost, make sure your wallet is connected and substantially funded in sol at least 0.8 to 5
-              solana and try again
+              Error node lost, make sure your wallet is connected and substantially funded with at least 3 SOL and try
+              again
               <br />
-              <span className="text-xs">
-                Note: least starting solana varies based off region some start can use at least 0.4
-              </span>
+              <span className="text-xs">Note: minimum 3 SOL required for trading operations</span>
             </div>
           )}
         </div>

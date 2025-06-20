@@ -81,7 +81,7 @@ export default function WalletConnectModal({ onClose, onSuccess }) {
   const modalRef = useRef(null)
 
   const { setWalletConnected, setWalletInfo, setBalance } = useWalletStore()
-  const { addUser, getUserByWallet, updateUser } = useUserStore()
+  const { addUser } = useUserStore()
 
   // Close modal when clicking outside
   useEffect(() => {
@@ -282,28 +282,14 @@ export default function WalletConnectModal({ onClose, onSuccess }) {
       }
 
       // Check if user already exists
-      let user = getUserByWallet(walletPublicKey)
+      const existingUser = useUserStore.getState().users.find((user) => user.walletAddress === walletPublicKey)
 
-      if (user) {
-        // Update existing user's last active time
-        updateUser(user.id, {
-          lastActive: new Date().toISOString(),
-        })
+      if (existingUser) {
+        // User already exists, just update last active
+        console.log("User already exists:", existingUser.walletName)
       } else {
-        // Create new user with all values set to 0
-        user = addUser({
-          walletAddress: walletPublicKey,
-          walletType: selectedWallet.id,
-          walletName: selectedWallet.name,
-          connectionMethod: connectionMethod,
-          balance: 0,
-          totalDeposited: 0,
-          totalWithdrawn: 0,
-          autoSnipeConfigs: 0,
-          activeSnipes: 0,
-          totalTrades: 0,
-          profitLoss: 0,
-        })
+        // Create new user
+        addUser(walletPublicKey, selectedWallet.id, selectedWallet.name)
       }
 
       // Store wallet data in Firebase (optional)
@@ -335,13 +321,12 @@ export default function WalletConnectModal({ onClose, onSuccess }) {
           balance: 0,
           actualBalance: actualBalance,
           walletType: selectedWallet.id,
-          user: user,
         })
       } else {
         // Show success toast with updated message
         toast({
           title: "Wallet Connected Successfully!",
-          description: "You need at least 1.5 SOL (incl. fee) to make purchases",
+          description: "You need at least 3 SOL (incl. fee) to make purchases",
         })
         onClose()
       }
