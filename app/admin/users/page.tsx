@@ -15,6 +15,7 @@ import {
   DollarSign,
   Trash2,
   ArrowLeft,
+  RefreshCw,
 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -28,7 +29,7 @@ import PageLayout from "@/components/page-layout"
 import Link from "next/link"
 
 export default function AdminUsersPage() {
-  const { users, updateUserBalance, toggleUserStatus, toggleVipStatus, deleteUser } = useUserStore()
+  const { users, updateUserBalance, toggleUserStatus, toggleVipStatus, deleteUser, getAllUsers } = useUserStore()
   const { configs } = useAutoSnipeStore()
 
   const [filteredUsers, setFilteredUsers] = useState<User[]>([])
@@ -39,13 +40,28 @@ export default function AdminUsersPage() {
   const [editingBalance, setEditingBalance] = useState("")
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    // Initialize with current users
-    setFilteredUsers(users)
-    setLoading(false)
-  }, [users])
+  // Debug function to check store state
+  const debugStore = () => {
+    console.log("Current users in store:", users)
+    console.log("All users from getAllUsers:", getAllUsers())
+    console.log("Store state:", useUserStore.getState())
+  }
 
   useEffect(() => {
+    console.log("AdminUsersPage mounted")
+    debugStore()
+
+    // Initialize with current users
+    const allUsers = getAllUsers()
+    console.log("Setting filtered users to:", allUsers)
+    setFilteredUsers(allUsers)
+    setLoading(false)
+  }, [])
+
+  useEffect(() => {
+    console.log("Users changed:", users)
+    debugStore()
+
     // Filter users based on search and status
     let filtered = users
 
@@ -62,8 +78,20 @@ export default function AdminUsersPage() {
       filtered = filtered.filter((user) => user.status === statusFilter)
     }
 
+    console.log("Filtered users:", filtered)
     setFilteredUsers(filtered)
   }, [users, searchQuery, statusFilter])
+
+  const handleRefresh = () => {
+    console.log("Refreshing users...")
+    debugStore()
+    const allUsers = getAllUsers()
+    setFilteredUsers(allUsers)
+    toast({
+      title: "Users Refreshed",
+      description: `Found ${allUsers.length} users`,
+    })
+  }
 
   const handleEditBalance = () => {
     if (!selectedUser || !editingBalance) return
@@ -172,12 +200,39 @@ export default function AdminUsersPage() {
           <p className="text-gray-400 mt-2">Manage user accounts, balances, and trading activity</p>
 
           <div className="mt-4 flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="bg-[#1a1a2e] border-gray-700 hover:bg-[#252542]"
+              onClick={handleRefresh}
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh Users
+            </Button>
             <Button variant="outline" size="sm" className="bg-[#1a1a2e] border-gray-700 hover:bg-[#252542]">
               <Download className="h-4 w-4 mr-2" />
               Export Users
             </Button>
           </div>
         </header>
+
+        {/* Debug Info */}
+        <Card className="bg-[#1a1a2e] border-gray-800 mb-6">
+          <CardHeader>
+            <CardTitle>Debug Information</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-sm space-y-2">
+              <p>Total users in store: {users.length}</p>
+              <p>Filtered users: {filteredUsers.length}</p>
+              <p>Search query: "{searchQuery}"</p>
+              <p>Status filter: {statusFilter}</p>
+              <Button onClick={debugStore} size="sm" variant="outline">
+                Log Store State
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
@@ -293,7 +348,7 @@ export default function AdminUsersPage() {
               </div>
               <div>
                 <Button onClick={() => setFilteredUsers([...users])} className="w-full" variant="outline">
-                  Refresh Users
+                  Reset Filters
                 </Button>
               </div>
             </div>
@@ -313,9 +368,13 @@ export default function AdminUsersPage() {
                 <h3 className="text-lg font-medium text-gray-400 mb-2">No Users Found</h3>
                 <p className="text-sm text-gray-500">
                   {users.length === 0
-                    ? "No users have connected their wallets yet."
+                    ? "No users have connected their wallets yet. Try connecting a wallet first."
                     : "No users match your current filters."}
                 </p>
+                <Button onClick={handleRefresh} className="mt-4" variant="outline">
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh Users
+                </Button>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -430,39 +489,6 @@ export default function AdminUsersPage() {
                             >
                               VIP
                             </Button>
-                            {user.status !== "banned" ? (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  if (confirm("Are you sure you want to ban this user?")) {
-                                    // Add ban functionality
-                                    toast({
-                                      title: "User Banned",
-                                      description: "User has been banned from the platform",
-                                    })
-                                  }
-                                }}
-                                className="border-red-600 text-red-500 bg-[#1a1a2e] hover:bg-red-600/10"
-                              >
-                                Ban
-                              </Button>
-                            ) : (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  // Add unban functionality
-                                  toast({
-                                    title: "User Unbanned",
-                                    description: "User has been unbanned",
-                                  })
-                                }}
-                                className="border-green-600 text-green-500 bg-[#1a1a2e] hover:bg-green-600/10"
-                              >
-                                Unban
-                              </Button>
-                            )}
                             <Button
                               variant="outline"
                               size="sm"
