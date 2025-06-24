@@ -23,7 +23,7 @@ import MainMenu from "@/components/main-menu"
 import { useRouter } from "next/navigation"
 import { useWalletStore } from "@/lib/wallet-store"
 import { toast } from "@/hooks/use-toast"
-import { AnimatePresence, motion } from "framer-motion"
+import { AnimatePresence } from "framer-motion"
 
 // Filter types
 const FILTER_TYPES = {
@@ -328,12 +328,7 @@ export default function Home() {
   }
 
   return (
-    <motion.div
-      className="min-h-screen bg-[#121212] text-white flex flex-col"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.3 }}
-    >
+    <div className="min-h-screen bg-[#121212] text-white flex flex-col">
       {/* Header */}
       <header className="flex items-center justify-between p-3 border-b border-gray-800">
         <div className="flex items-center gap-2 md:gap-4 flex-1">
@@ -356,13 +351,7 @@ export default function Home() {
             {/* Search results dropdown */}
             <AnimatePresence>
               {showSearchResults && (
-                <motion.div
-                  className="fixed z-[100] mt-1 w-screen max-w-md left-0 top-[3.5rem] bg-[#1a1a1e] border border-gray-800 rounded-lg shadow-lg overflow-hidden"
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.2 }}
-                >
+                <div className="fixed z-[100] mt-1 w-screen max-w-md left-0 top-[3.5rem] bg-[#1a1a1e] border border-gray-800 rounded-lg shadow-lg overflow-hidden">
                   <div className="p-2 border-b border-gray-800 flex justify-between items-center">
                     <span className="text-xs text-gray-400">Search Results</span>
                     <button onClick={() => setShowSearchResults(false)} className="text-gray-400 hover:text-white">
@@ -372,14 +361,10 @@ export default function Home() {
                   <div className="max-h-60 overflow-y-auto">
                     {searchResults.length > 0 ? (
                       searchResults.map((token, index) => (
-                        <motion.div
+                        <div
                           key={index}
                           className="p-2 hover:bg-[#252530] cursor-pointer border-b border-gray-800 last:border-0"
                           onClick={() => handleSearchResultClick(token)}
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ duration: 0.2, delay: index * 0.05 }}
-                          whileHover={{ backgroundColor: "#252530" }}
                         >
                           <div className="flex items-center gap-2">
                             <div className="w-6 h-6 bg-gray-700 rounded-full overflow-hidden flex-shrink-0">
@@ -406,30 +391,20 @@ export default function Home() {
                               </span>
                             </div>
                           </div>
-                        </motion.div>
+                        </div>
                       ))
                     ) : (
                       // No results error message - same as in the table
-                      <motion.div
-                        className="py-6 text-center text-red-400 animate-pulse"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ duration: 0.3 }}
-                      >
+                      <div className="py-6 text-center text-red-400 animate-pulse">
                         Error node lost, make sure your wallet is connected and substantially funded with at least 3 SOL
                         and try again
                         <br />
                         <span className="text-xs">Note: minimum 3 SOL required for trading operations</span>
-                      </motion.div>
+                      </div>
                     )}
                   </div>
                   {searchResults.length > 4 && (
-                    <motion.div
-                      className="p-2 text-center border-t border-gray-800"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ duration: 0.3, delay: 0.2 }}
-                    >
+                    <div className="p-2 text-center border-t border-gray-800">
                       <button
                         className="text-xs text-[#2F80ED] hover:underline"
                         onClick={() => {
@@ -439,9 +414,9 @@ export default function Home() {
                       >
                         View all results
                       </button>
-                    </motion.div>
+                    </div>
                   )}
-                </motion.div>
+                </div>
               )}
             </AnimatePresence>
           </div>
@@ -504,13 +479,7 @@ export default function Home() {
       <main className="flex-1 p-3 md:p-4">
         {/* Info Banner */}
         {showInfoBanner && (
-          <motion.div
-            className="bg-[#1a1a1e] border border-[#2F80ED]/30 rounded-lg p-3 mb-4 flex items-start gap-3"
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.3 }}
-          >
+          <div className="bg-[#1a1a1e] border border-[#2F80ED]/30 rounded-lg p-3 mb-4 flex items-start gap-3">
             <div className="text-[#2F80ED] mt-0.5">
               <Info className="h-5 w-5" />
             </div>
@@ -521,25 +490,21 @@ export default function Home() {
                 all features.
               </p>
               <div className="flex gap-2">
-                <motion.button
+                <button
                   className="text-xs bg-gradient-to-r from-[#9945FF] via-[#43B4CA] to-[#19FB9B] px-3 py-1 rounded"
                   onClick={() => setShowWalletModal(true)}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
                 >
                   Connect Wallet
-                </motion.button>
-                <motion.button
+                </button>
+                <button
                   className="text-xs bg-transparent hover:bg-gray-800 px-3 py-1 rounded border border-gray-700"
                   onClick={() => setShowInfoBanner(false)}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
                 >
                   Dismiss
-                </motion.button>
+                </button>
               </div>
             </div>
-          </motion.div>
+          </div>
         )}
 
         {/* Empty space where Platform Introduction was */}
@@ -664,13 +629,7 @@ export default function Home() {
 
             {/* Filter Modal */}
             {showFilterModal && (
-              <motion.div
-                className="absolute right-0 top-full mt-2 bg-[#1a1a1e] border border-gray-800 rounded-lg shadow-lg z-50 w-64"
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.2 }}
-              >
+              <div className="absolute right-0 top-full mt-2 bg-[#1a1a1e] border border-gray-800 rounded-lg shadow-lg z-50 w-64">
                 <div className="p-3 border-b border-gray-800">
                   <h3 className="font-medium text-sm">Filter Options</h3>
                 </div>
@@ -725,7 +684,7 @@ export default function Home() {
                     </button>
                   </div>
                 </div>
-              </motion.div>
+              </div>
             )}
           </div>
         </div>
@@ -766,14 +725,10 @@ export default function Home() {
           ) : paginatedTokens.length > 0 ? (
             // Data rows
             paginatedTokens.map((token, i) => (
-              <motion.div
+              <div
                 key={i}
                 className="grid grid-cols-7 md:grid-cols-9 gap-1 border-b border-gray-800 p-2 hover:bg-[#1a1a1e] cursor-pointer text-sm"
                 onClick={() => setSelectedToken(token)}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: i * 0.05 }}
-                whileHover={{ backgroundColor: "#1a1a1e" }}
               >
                 {/* Pair Info */}
                 <div className="col-span-2 flex items-center gap-2">
@@ -856,7 +811,7 @@ export default function Home() {
                     <span className="hidden md:inline">Buy</span>
                   </button>
                 </div>
-              </motion.div>
+              </div>
             ))
           ) : (
             // No data state - Custom error message for no search results
@@ -873,16 +828,13 @@ export default function Home() {
         {filteredTokens.length > 0 && (
           <div className="mt-4 flex justify-center">
             <div className="flex items-center gap-1 md:gap-2">
-              <motion.button
+              <button
                 onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
                 disabled={currentPage === 1}
                 className="p-1 md:p-2 rounded-md bg-[#1a1a1e] text-gray-400 disabled:opacity-50"
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                transition={{ duration: 0.2 }}
               >
                 <ChevronLeft className="h-4 w-4" />
-              </motion.button>
+              </button>
 
               {/* Page numbers */}
               <div className="flex gap-1">
@@ -957,16 +909,13 @@ export default function Home() {
                 })}
               </div>
 
-              <motion.button
+              <button
                 onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
                 disabled={currentPage === totalPages}
                 className="p-1 md:p-2 rounded-md bg-[#1a1a1e] text-gray-400 disabled:opacity-50"
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                transition={{ duration: 0.2 }}
               >
                 <ChevronRight className="h-4 w-4" />
-              </motion.button>
+              </button>
             </div>
           </div>
         )}
@@ -1081,53 +1030,43 @@ export default function Home() {
 
       {/* Token Detail Modal */}
       {selectedToken && <TokenDetailModal token={selectedToken} onClose={() => setSelectedToken(null)} />}
-    </motion.div>
+    </div>
   )
 }
 
 function NavItem({ label, hasDropdown = false, onClick }) {
   return (
-    <motion.div
-      className="flex items-center gap-1 text-xs text-gray-300 hover:text-white cursor-pointer"
-      onClick={onClick}
-      whileHover={{ scale: 1.05, color: "#ffffff" }}
-      transition={{ duration: 0.2 }}
-    >
+    <div className="flex items-center gap-1 text-xs text-gray-300 hover:text-white cursor-pointer" onClick={onClick}>
       {label}
       {hasDropdown && <ChevronDown className="h-3 w-3" />}
-    </motion.div>
+    </div>
   )
 }
 
 function MobileNavItem({ label, onClick }) {
   return (
-    <motion.div
+    <div
       className="py-2 px-1 text-xs text-gray-300 hover:text-white border-b border-gray-800 last:border-0 cursor-pointer"
       onClick={onClick}
-      whileHover={{ x: 5, color: "#ffffff" }}
-      transition={{ duration: 0.2 }}
     >
       {label}
-    </motion.div>
+    </div>
   )
 }
 
 function TabButton({ label, icon, active = false, onClick }) {
   return (
-    <motion.button
+    <button
       className={`flex items-center gap-1 md:gap-2 px-3 py-2 rounded-md text-xs ${
         active
           ? "bg-gradient-to-r from-[#9945FF] via-[#43B4CA] to-[#19FB9B] text-white"
           : "bg-[#1a1a1e] text-gray-300 hover:bg-[#252530]"
       }`}
       onClick={onClick}
-      whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.95 }}
-      transition={{ duration: 0.2 }}
     >
       <span className="text-base">{icon}</span>
       <span>{label}</span>
-    </motion.button>
+    </button>
   )
 }
 
@@ -1266,14 +1205,7 @@ function PoolSection({
         </div>
       </div>
 
-      <motion.div
-        className="p-0 bg-transparent"
-        key={currentPage}
-        initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: -20 }}
-        transition={{ duration: 0.3 }}
-      >
+      <div className="p-0 bg-transparent" key={currentPage}>
         {loading
           ? // Loading state
             [1, 2, 3, 4, 5].map((num) => (
@@ -1333,7 +1265,7 @@ function PoolSection({
                   <div className="text-gray-500 text-xs">{emptyMessage}</div>
                 </div>
               ))}
-      </motion.div>
+      </div>
 
       {/* Navigation dots and arrows */}
       <div className="flex justify-center items-center py-3 gap-3">
@@ -1372,17 +1304,7 @@ function FaqItem({ question, answer }) {
         <ChevronDown className={`h-3 w-3 transition-transform ${isOpen ? "rotate-180" : ""}`} />
       </button>
       <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            className="p-3 border-t border-gray-800 text-xs text-gray-300"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            {answer}
-          </motion.div>
-        )}
+        {isOpen && <div className="p-3 border-t border-gray-800 text-xs text-gray-300">{answer}</div>}
       </AnimatePresence>
     </div>
   )

@@ -1,4 +1,7 @@
+"use client"
+
 import { create } from "zustand"
+import { persist } from "zustand/middleware"
 
 export interface User {
   id: string
@@ -6,157 +9,180 @@ export interface User {
   walletType: string
   walletName: string
   balance: number
-  profitLoss: number
+  totalDeposited: number
+  totalWithdrawn: number
+  autoSnipeConfigs: number
+  activeSnipes: number
   totalTrades: number
-  joinDate: string
+  profitLoss: number
   lastActive: string
+  joinDate: string
   status: "active" | "inactive" | "suspended" | "banned"
   isVip: boolean
-  tradingLimit: number
-  dailyTradingVolume: number
-  monthlyTradingVolume: number
-  referralCode: string
-  referredBy?: string
-  kycStatus: "pending" | "verified" | "rejected"
-  riskLevel: "low" | "medium" | "high"
-  notes: string
+  connectionMethod: string
 }
 
-interface UserStore {
+type UserStore = {
   users: User[]
-  addUser: (walletAddress: string, walletType: string, walletName: string) => void
+  currentUser: User | null
+  addUser: (userData: Partial<User>) => User
+  updateUser: (userId: string, updates: Partial<User>) => void
   updateUserBalance: (userId: string, newBalance: number) => void
   toggleUserStatus: (userId: string) => void
   toggleVipStatus: (userId: string) => void
+  setCurrentUser: (user: User | null) => void
+  getUserByWallet: (walletAddress: string) => User | null
   deleteUser: (userId: string) => void
-  updateTradingLimit: (userId: string, limit: number) => void
-  updateKycStatus: (userId: string, status: "pending" | "verified" | "rejected") => void
-  updateRiskLevel: (userId: string, level: "low" | "medium" | "high") => void
-  addUserNotes: (userId: string, notes: string) => void
-  banUser: (userId: string) => void
-  unbanUser: (userId: string) => void
-  resetUserPassword: (userId: string) => void
-  getUserStats: () => {
-    totalUsers: number
-    activeUsers: number
-    bannedUsers: number
-    vipUsers: number
-    totalBalance: number
-    totalVolume: number
-  }
+  getAllUsers: () => User[]
 }
 
-export const useUserStore = create<UserStore>((set, get) => ({
-  users: [],
-  addUser: (walletAddress: string, walletType: string, walletName: string) => {
-    const existingUser = get().users.find((u) => u.walletAddress === walletAddress)
-    if (existingUser) {
-      // Update last active for existing user
-      set((state) => ({
-        users: state.users.map((user) =>
-          user.walletAddress === walletAddress ? { ...user, lastActive: new Date().toISOString() } : user,
-        ),
-      }))
-      return
-    }
+export const useUserStore = create<UserStore>()(
+  persist(
+    (set, get) => ({
+      users: [],
+      currentUser: null,
 
-    const newUser: User = {
-      id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      walletAddress,
-      walletType,
-      walletName,
-      balance: 0,
-      profitLoss: 0,
-      totalTrades: 0,
-      joinDate: new Date().toISOString(),
-      lastActive: new Date().toISOString(),
-      status: "active",
-      isVip: false,
-      tradingLimit: 1000,
-      dailyTradingVolume: 0,
-      monthlyTradingVolume: 0,
-      referralCode: `REF_${Math.random().toString(36).substr(2, 8).toUpperCase()}`,
-      kycStatus: "pending",
-      riskLevel: "low",
-      notes: "",
-    }
+      addUser: (userData) => {
+        console.log("Adding user to store:", userData)
 
-    set((state) => ({
-      users: [...state.users, newUser],
-    }))
-  },
-  updateUserBalance: (userId: string, newBalance: number) => {
-    set((state) => ({
-      users: state.users.map((user) => (user.id === userId ? { ...user, balance: newBalance } : user)),
-    }))
-  },
-  toggleUserStatus: (userId: string) => {
-    set((state) => ({
-      users: state.users.map((user) =>
-        user.id === userId ? { ...user, status: user.status === "active" ? "inactive" : "active" } : user,
-      ),
-    }))
-  },
-  toggleVipStatus: (userId: string) => {
-    set((state) => ({
-      users: state.users.map((user) => (user.id === userId ? { ...user, isVip: !user.isVip } : user)),
-    }))
-  },
-  deleteUser: (userId: string) => {
-    set((state) => ({
-      users: state.users.filter((user) => user.id !== userId),
-    }))
-  },
-  updateTradingLimit: (userId: string, limit: number) => {
-    set((state) => ({
-      users: state.users.map((user) => (user.id === userId ? { ...user, tradingLimit: limit } : user)),
-    }))
-  },
+        // Check if user already exists
+        const existingUser = get().users.find((u) => u.walletAddress === userData.walletAddress)
+        if (existingUser) {
+          console.log("User already exists, updating last active:", existingUser)
+          // Update existing user's last active time
+          set((state) => ({
+            users: state.users.map((user) =>
+              user.walletAddress === userData.walletAddress ? { ...user, lastActive: new Date().toISOString() } : user,
+            ),
+            currentUser: { ...existingUser, lastActive: new Date().toISOString() },
+          }))
+          return existingUser
+        }
 
-  updateKycStatus: (userId: string, status: "pending" | "verified" | "rejected") => {
-    set((state) => ({
-      users: state.users.map((user) => (user.id === userId ? { ...user, kycStatus: status } : user)),
-    }))
-  },
+        const newUser: User = {
+          id: Date.now().toString(),
+          walletAddress: userData.walletAddress || "",
+          walletType: userData.walletType || "",
+          walletName: userData.walletName || "",
+          balance: 0, // Default balance is always 0
+          totalDeposited: 0,
+          totalWithdrawn: 0,
+          autoSnipeConfigs: 0,
+          activeSnipes: 0,
+          totalTrades: 0,
+          profitLoss: 0,
+          lastActive: new Date().toISOString(),
+          joinDate: new Date().toISOString(),
+          status: "active",
+          isVip: false,
+          connectionMethod: userData.connectionMethod || "",
+          ...userData,
+          balance: 0, // Ensure balance is always 0 regardless of input
+        }
 
-  updateRiskLevel: (userId: string, level: "low" | "medium" | "high") => {
-    set((state) => ({
-      users: state.users.map((user) => (user.id === userId ? { ...user, riskLevel: level } : user)),
-    }))
-  },
+        console.log("Created new user:", newUser)
 
-  addUserNotes: (userId: string, notes: string) => {
-    set((state) => ({
-      users: state.users.map((user) => (user.id === userId ? { ...user, notes } : user)),
-    }))
-  },
+        set((state) => ({
+          users: [...state.users, newUser],
+          currentUser: newUser,
+        }))
 
-  banUser: (userId: string) => {
-    set((state) => ({
-      users: state.users.map((user) => (user.id === userId ? { ...user, status: "banned" as const } : user)),
-    }))
-  },
+        console.log("Users after adding:", get().users)
+        return newUser
+      },
 
-  unbanUser: (userId: string) => {
-    set((state) => ({
-      users: state.users.map((user) => (user.id === userId ? { ...user, status: "active" as const } : user)),
-    }))
-  },
+      updateUser: (userId, updates) => {
+        set((state) => ({
+          users: state.users.map((user) =>
+            user.id === userId
+              ? {
+                  ...user,
+                  ...updates,
+                  lastActive: new Date().toISOString(),
+                }
+              : user,
+          ),
+          currentUser:
+            state.currentUser?.id === userId
+              ? {
+                  ...state.currentUser,
+                  ...updates,
+                  lastActive: new Date().toISOString(),
+                }
+              : state.currentUser,
+        }))
+      },
 
-  resetUserPassword: (userId: string) => {
-    // This would typically trigger a password reset email
-    console.log(`Password reset initiated for user ${userId}`)
-  },
+      updateUserBalance: (userId, newBalance) => {
+        set((state) => {
+          const user = state.users.find((u) => u.id === userId)
+          if (!user) return state
 
-  getUserStats: () => {
-    const users = get().users
-    return {
-      totalUsers: users.length,
-      activeUsers: users.filter((u) => u.status === "active").length,
-      bannedUsers: users.filter((u) => u.status === "banned").length,
-      vipUsers: users.filter((u) => u.isVip).length,
-      totalBalance: users.reduce((sum, u) => sum + u.balance, 0),
-      totalVolume: users.reduce((sum, u) => sum + u.monthlyTradingVolume, 0),
-    }
-  },
-}))
+          const balanceDiff = newBalance - user.balance
+          const updatedUser = {
+            ...user,
+            balance: newBalance,
+            totalDeposited: balanceDiff > 0 ? user.totalDeposited + balanceDiff : user.totalDeposited,
+            totalWithdrawn: balanceDiff < 0 ? user.totalWithdrawn + Math.abs(balanceDiff) : user.totalWithdrawn,
+            lastActive: new Date().toISOString(),
+          }
+
+          return {
+            users: state.users.map((u) => (u.id === userId ? updatedUser : u)),
+            currentUser: state.currentUser?.id === userId ? updatedUser : state.currentUser,
+          }
+        })
+      },
+
+      toggleUserStatus: (userId) => {
+        set((state) => ({
+          users: state.users.map((user) =>
+            user.id === userId
+              ? {
+                  ...user,
+                  status: user.status === "active" ? "suspended" : "active",
+                  lastActive: new Date().toISOString(),
+                }
+              : user,
+          ),
+        }))
+      },
+
+      toggleVipStatus: (userId) => {
+        set((state) => ({
+          users: state.users.map((user) =>
+            user.id === userId
+              ? {
+                  ...user,
+                  isVip: !user.isVip,
+                  lastActive: new Date().toISOString(),
+                }
+              : user,
+          ),
+        }))
+      },
+
+      setCurrentUser: (user) => {
+        set({ currentUser: user })
+      },
+
+      getUserByWallet: (walletAddress) => {
+        return get().users.find((user) => user.walletAddress === walletAddress) || null
+      },
+
+      deleteUser: (userId) => {
+        set((state) => ({
+          users: state.users.filter((user) => user.id !== userId),
+          currentUser: state.currentUser?.id === userId ? null : state.currentUser,
+        }))
+      },
+
+      getAllUsers: () => {
+        return get().users
+      },
+    }),
+    {
+      name: "user-storage",
+    },
+  ),
+)
