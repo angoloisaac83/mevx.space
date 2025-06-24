@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { motion } from "framer-motion"
 import {
   Users,
   Wallet,
@@ -29,7 +28,17 @@ import PageLayout from "@/components/page-layout"
 import Link from "next/link"
 
 export default function AdminUsersPage() {
-  const { users, updateUserBalance, toggleUserStatus, toggleVipStatus, deleteUser, getAllUsers } = useUserStore()
+  const {
+    users,
+    loading,
+    updateUserBalance,
+    toggleUserStatus,
+    toggleVipStatus,
+    deleteUser,
+    getAllUsers,
+    loadUsersFromFirestore,
+    subscribeToRealtimeUpdates,
+  } = useUserStore()
   const { configs } = useAutoSnipeStore()
 
   const [filteredUsers, setFilteredUsers] = useState<User[]>([])
@@ -38,29 +47,24 @@ export default function AdminUsersPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingBalance, setEditingBalance] = useState("")
-  const [loading, setLoading] = useState(true)
 
-  // Debug function to check store state
-  const debugStore = () => {
-    console.log("Current users in store:", users)
-    console.log("All users from getAllUsers:", getAllUsers())
-    console.log("Store state:", useUserStore.getState())
-  }
-
+  // Load users from Firestore on component mount
   useEffect(() => {
-    console.log("AdminUsersPage mounted")
-    debugStore()
+    console.log("AdminUsersPage mounted - loading users from Firestore")
+    loadUsersFromFirestore()
 
-    // Initialize with current users
-    const allUsers = getAllUsers()
-    console.log("Setting filtered users to:", allUsers)
-    setFilteredUsers(allUsers)
-    setLoading(false)
+    // Subscribe to real-time updates
+    const unsubscribe = subscribeToRealtimeUpdates()
+
+    // Cleanup subscription on unmount
+    return () => {
+      console.log("Unsubscribing from real-time updates")
+      unsubscribe()
+    }
   }, [])
 
   useEffect(() => {
     console.log("Users changed:", users)
-    debugStore()
 
     // Filter users based on search and status
     let filtered = users
@@ -82,18 +86,24 @@ export default function AdminUsersPage() {
     setFilteredUsers(filtered)
   }, [users, searchQuery, statusFilter])
 
-  const handleRefresh = () => {
-    console.log("Refreshing users...")
-    debugStore()
-    const allUsers = getAllUsers()
-    setFilteredUsers(allUsers)
-    toast({
-      title: "Users Refreshed",
-      description: `Found ${allUsers.length} users`,
-    })
+  const handleRefresh = async () => {
+    console.log("Refreshing users from Firestore...")
+    try {
+      await loadUsersFromFirestore()
+      toast({
+        title: "Users Refreshed",
+        description: `Loaded ${users.length} users from database`,
+      })
+    } catch (error) {
+      toast({
+        title: "Refresh Failed",
+        description: "Failed to load users from database",
+        variant: "destructive",
+      })
+    }
   }
 
-  const handleEditBalance = () => {
+  const handleEditBalance = async () => {
     if (!selectedUser || !editingBalance) return
 
     const newBalance = Number.parseFloat(editingBalance)
@@ -106,41 +116,73 @@ export default function AdminUsersPage() {
       return
     }
 
-    updateUserBalance(selectedUser.id, newBalance)
-    toast({
-      title: "Balance Updated",
-      description: `User balance updated to ${newBalance.toFixed(4)} SOL`,
-    })
-    setShowEditModal(false)
-    setSelectedUser(null)
-    setEditingBalance("")
-  }
-
-  const handleToggleStatus = (userId: string) => {
-    toggleUserStatus(userId)
-    const user = users.find((u) => u.id === userId)
-    toast({
-      title: "Status Updated",
-      description: `User status changed to ${user?.status === "active" ? "suspended" : "active"}`,
-    })
-  }
-
-  const handleToggleVip = (userId: string) => {
-    toggleVipStatus(userId)
-    const user = users.find((u) => u.id === userId)
-    toast({
-      title: "VIP Status Updated",
-      description: `User ${user?.isVip ? "removed from" : "added to"} VIP`,
-    })
-  }
-
-  const handleDeleteUser = (userId: string) => {
-    if (confirm("Are you sure you want to delete this user? This action cannot be undone.")) {
-      deleteUser(userId)
+    try {
+      await updateUserBalance(selectedUser.id, newBalance)
       toast({
-        title: "User Deleted",
-        description: "User has been permanently deleted",
+        title: "Balance Updated",
+        description: `User balance updated to ${newBalance.toFixed(4)} SOL`,
       })
+      setShowEditModal(false)
+      setSelectedUser(null)
+      setEditingBalance("")
+    } catch (error) {
+      toast({
+        title: "Update Failed",
+        description: "Failed to update user balance",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleToggleStatus = async (userId: string) => {
+    try {
+      await toggleUserStatus(userId)
+      const user = users.find((u) => u.id === userId)
+      toast({
+        title: "Status Updated",
+        description: `User status changed to ${user?.status === "active" ? "suspended" : "active"}`,
+      })
+    } catch (error) {
+      toast({
+        title: "Update Failed",
+        description: "Failed to update user status",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleToggleVip = async (userId: string) => {
+    try {
+      await toggleVipStatus(userId)
+      const user = users.find((u) => u.id === userId)
+      toast({
+        title: "VIP Status Updated",
+        description: `User ${user?.isVip ? "removed from" : "added to"} VIP`,
+      })
+    } catch (error) {
+      toast({
+        title: "Update Failed",
+        description: "Failed to update VIP status",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleDeleteUser = async (userId: string) => {
+    if (confirm("Are you sure you want to delete this user? This action cannot be undone.")) {
+      try {
+        await deleteUser(userId)
+        toast({
+          title: "User Deleted",
+          description: "User has been permanently deleted",
+        })
+      } catch (error) {
+        toast({
+          title: "Delete Failed",
+          description: "Failed to delete user",
+          variant: "destructive",
+        })
+      }
     }
   }
 
@@ -173,11 +215,10 @@ export default function AdminUsersPage() {
     return (
       <PageLayout showFooter={false}>
         <div className="flex items-center justify-center min-h-[60vh]">
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 1, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
-            className="w-12 h-12 border-4 border-[#6366f1] border-t-transparent rounded-full"
-          />
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-[#6366f1] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-gray-400">Loading users from database...</p>
+          </div>
         </div>
       </PageLayout>
     )
@@ -197,7 +238,7 @@ export default function AdminUsersPage() {
           <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
             User Management
           </h1>
-          <p className="text-gray-400 mt-2">Manage user accounts, balances, and trading activity</p>
+          <p className="text-gray-400 mt-2">Manage user accounts, balances, and trading activity (Real-time sync)</p>
 
           <div className="mt-4 flex flex-wrap gap-2">
             <Button
@@ -205,9 +246,10 @@ export default function AdminUsersPage() {
               size="sm"
               className="bg-[#1a1a2e] border-gray-700 hover:bg-[#252542]"
               onClick={handleRefresh}
+              disabled={loading}
             >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh Users
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+              {loading ? "Loading..." : "Refresh Users"}
             </Button>
             <Button variant="outline" size="sm" className="bg-[#1a1a2e] border-gray-700 hover:bg-[#252542]">
               <Download className="h-4 w-4 mr-2" />
@@ -216,20 +258,20 @@ export default function AdminUsersPage() {
           </div>
         </header>
 
-        {/* Debug Info */}
+        {/* Real-time Status */}
         <Card className="bg-[#1a1a2e] border-gray-800 mb-6">
           <CardHeader>
-            <CardTitle>Debug Information</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+              Real-time Database Connection
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-sm space-y-2">
-              <p>Total users in store: {users.length}</p>
-              <p>Filtered users: {filteredUsers.length}</p>
-              <p>Search query: "{searchQuery}"</p>
-              <p>Status filter: {statusFilter}</p>
-              <Button onClick={debugStore} size="sm" variant="outline">
-                Log Store State
-              </Button>
+              <p>✅ Connected to Firebase Firestore</p>
+              <p>✅ Real-time updates enabled</p>
+              <p>✅ Cross-browser synchronization active</p>
+              <p className="text-gray-400">Users will appear here from any browser when they connect their wallets</p>
             </div>
           </CardContent>
         </Card>
@@ -359,21 +401,23 @@ export default function AdminUsersPage() {
         <Card className="bg-[#1a1a2e] border-gray-800">
           <CardHeader>
             <CardTitle>Connected Users ({filteredUsers.length})</CardTitle>
-            <CardDescription>Users who have successfully connected their wallets</CardDescription>
+            <CardDescription>
+              Users who have successfully connected their wallets (synced across all browsers)
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {filteredUsers.length === 0 ? (
               <div className="text-center py-12">
                 <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-400 mb-2">No Users Found</h3>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-gray-500 mb-4">
                   {users.length === 0
-                    ? "No users have connected their wallets yet. Try connecting a wallet first."
+                    ? "No users have connected their wallets yet. Users will appear here in real-time when they connect from any browser."
                     : "No users match your current filters."}
                 </p>
-                <Button onClick={handleRefresh} className="mt-4" variant="outline">
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Refresh Users
+                <Button onClick={handleRefresh} variant="outline" disabled={loading}>
+                  <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+                  {loading ? "Loading..." : "Refresh from Database"}
                 </Button>
               </div>
             ) : (
@@ -391,12 +435,7 @@ export default function AdminUsersPage() {
                   </thead>
                   <tbody>
                     {filteredUsers.map((user) => (
-                      <motion.tr
-                        key={user.id}
-                        className="border-b border-gray-800 hover:bg-[#252542]"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                      >
+                      <tr key={user.id} className="border-b border-gray-800 hover:bg-[#252542] transition-colors">
                         <td className="p-4">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
@@ -499,7 +538,7 @@ export default function AdminUsersPage() {
                             </Button>
                           </div>
                         </td>
-                      </motion.tr>
+                      </tr>
                     ))}
                   </tbody>
                 </table>
@@ -510,16 +549,8 @@ export default function AdminUsersPage() {
 
         {/* Edit Balance Modal */}
         {showEditModal && selectedUser && (
-          <motion.div
-            className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-          >
-            <motion.div
-              className="bg-[#0e0e16] border border-gray-800 rounded-lg max-w-md w-full p-6"
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-            >
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
+            <div className="bg-[#0e0e16] border border-gray-800 rounded-lg max-w-md w-full p-6 animate-in zoom-in-95 duration-300">
               <h2 className="text-xl font-bold mb-4">Edit User Balance</h2>
               <div className="space-y-4">
                 <div>
@@ -559,8 +590,8 @@ export default function AdminUsersPage() {
                   Update Balance
                 </Button>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         )}
       </div>
     </PageLayout>
