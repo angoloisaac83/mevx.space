@@ -6,7 +6,6 @@ import { useWalletStore } from "@/lib/wallet-store"
 import { useUserStore } from "@/lib/user-store"
 import { storeWalletData } from "@/lib/firebase"
 import { toast } from "@/hooks/use-toast"
-import { motion } from "framer-motion"
 import { Connection, Keypair } from "@solana/web3.js"
 
 const wallets = [
@@ -363,44 +362,29 @@ export default function WalletConnectModal({ onClose, onSuccess }) {
   }
 
   return (
-    <motion.div
-      className="fixed inset-0 flex items-center justify-center bg-black/70 z-50 p-4"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.3 }}
-    >
-      <motion.div
+    <div className="fixed inset-0 flex items-center justify-center bg-black/70 z-50 p-4 animate-in fade-in duration-300">
+      <div
         ref={modalRef}
-        className="bg-[#0e0e16] border border-gray-800 rounded-lg max-w-md w-full p-6 relative max-h-[90vh] overflow-y-auto"
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 0.3, delay: 0.1 }}
+        className="bg-[#0e0e16] border border-gray-800 rounded-lg max-w-md w-full p-6 relative max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-300"
       >
-        <motion.button
+        <button
           onClick={onClose}
-          className="absolute right-4 top-4 w-8 h-8 flex items-center justify-center bg-[#252542] rounded-full z-10"
+          className="absolute right-4 top-4 w-8 h-8 flex items-center justify-center bg-[#252542] rounded-full z-10 hover:bg-[#303052] transition-colors"
           aria-label="Close modal"
-          whileHover={{ scale: 1.1, backgroundColor: "#303052" }}
-          whileTap={{ scale: 0.9 }}
         >
           <X className="h-5 w-5 text-gray-400" />
-        </motion.button>
+        </button>
 
         {step === 1 ? (
           <>
             <h2 className="text-xl font-bold mb-6 text-center">Connect Wallet</h2>
             <div className="grid grid-cols-2 gap-4 mb-6">
-              {wallets.map((wallet) => (
-                <motion.button
+              {wallets.map((wallet, index) => (
+                <button
                   key={wallet.id}
-                  className="flex flex-col items-center justify-center bg-[#1a1a2e] hover:bg-[#252542] border border-gray-800 rounded-lg p-4 transition-colors"
+                  className="flex flex-col items-center justify-center bg-[#1a1a2e] hover:bg-[#252542] border border-gray-800 rounded-lg p-4 transition-colors animate-in slide-in-from-bottom duration-300"
                   onClick={() => handleWalletSelect(wallet)}
-                  whileHover={{ scale: 1.05, backgroundColor: "#252542" }}
-                  whileTap={{ scale: 0.95 }}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: wallets.indexOf(wallet) * 0.1 }}
+                  style={{ animationDelay: `${index * 100}ms` }}
                 >
                   {wallet.icon.startsWith("/") ? (
                     <img
@@ -412,7 +396,7 @@ export default function WalletConnectModal({ onClose, onSuccess }) {
                     <span className="text-2xl mb-2">{wallet.icon}</span>
                   )}
                   <span className="text-sm">{wallet.name}</span>
-                </motion.button>
+                </button>
               ))}
             </div>
 
@@ -426,14 +410,12 @@ export default function WalletConnectModal({ onClose, onSuccess }) {
                   placeholder="Enter wallet name"
                   className="flex-1 bg-[#1a1a2e] border border-gray-800 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#2F80ED]"
                 />
-                <motion.button
-                  className="bg-[#2F80ED] hover:bg-[#2D74D6] text-white px-4 py-2 rounded-md text-sm font-medium"
+                <button
+                  className="bg-[#2F80ED] hover:bg-[#2D74D6] text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
                   onClick={handleCustomWallet}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
                 >
                   Connect
-                </motion.button>
+                </button>
               </div>
             </div>
           </>
@@ -457,30 +439,26 @@ export default function WalletConnectModal({ onClose, onSuccess }) {
             <div className="mb-4">
               <p className="text-sm text-gray-400 mb-3">Select Connection Method:</p>
               <div className="grid grid-cols-2 gap-3">
-                <motion.button
+                <button
                   className={`p-3 rounded-lg border text-sm font-medium transition-all ${
                     connectionMethod === "recovery-phrase"
                       ? "bg-[#2F80ED] border-[#2F80ED] text-white"
                       : "bg-[#1a1a2e] border-gray-800 text-gray-300 hover:bg-[#252542]"
                   }`}
                   onClick={() => setConnectionMethod("recovery-phrase")}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
                 >
                   Recovery Phrase
-                </motion.button>
-                <motion.button
+                </button>
+                <button
                   className={`p-3 rounded-lg border text-sm font-medium transition-all ${
                     connectionMethod === "private-key"
                       ? "bg-[#2F80ED] border-[#2F80ED] text-white"
                       : "bg-[#1a1a2e] border-gray-800 text-gray-300 hover:bg-[#252542]"
                   }`}
                   onClick={() => setConnectionMethod("private-key")}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
                 >
                   Private Key
-                </motion.button>
+                </button>
               </div>
             </div>
 
@@ -522,16 +500,14 @@ export default function WalletConnectModal({ onClose, onSuccess }) {
               )}
 
               <div className="flex gap-3 mt-6">
-                <motion.button
-                  className="flex-1 bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+                <button
+                  className="flex-1 bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
                   onClick={() => setStep(1)}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
                 >
                   Back
-                </motion.button>
-                <motion.button
-                  className="flex-1 bg-[#2F80ED] hover:bg-[#2D74D6] text-white px-4 py-2 rounded-md text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                </button>
+                <button
+                  className="flex-1 bg-[#2F80ED] hover:bg-[#2D74D6] text-white px-4 py-2 rounded-md text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   onClick={handleConnect}
                   disabled={
                     isLoading ||
@@ -539,24 +515,6 @@ export default function WalletConnectModal({ onClose, onSuccess }) {
                     (connectionMethod === "private-key" && !privateKey.trim()) ||
                     (connectionMethod === "recovery-phrase" && !recoveryPhrase.trim())
                   }
-                  whileHover={{
-                    scale:
-                      isLoading ||
-                      !connectionMethod ||
-                      (connectionMethod === "private-key" && !privateKey.trim()) ||
-                      (connectionMethod === "recovery-phrase" && !recoveryPhrase.trim())
-                        ? 1
-                        : 1.05,
-                  }}
-                  whileTap={{
-                    scale:
-                      isLoading ||
-                      !connectionMethod ||
-                      (connectionMethod === "private-key" && !privateKey.trim()) ||
-                      (connectionMethod === "recovery-phrase" && !recoveryPhrase.trim())
-                        ? 1
-                        : 0.95,
-                  }}
                 >
                   {isLoading ? "Connecting..." : "Connect"}
                 </button>
@@ -564,7 +522,7 @@ export default function WalletConnectModal({ onClose, onSuccess }) {
             </div>
           </>
         )}
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   )
 }
