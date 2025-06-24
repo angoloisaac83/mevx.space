@@ -81,7 +81,7 @@ export default function WalletConnectModal({ onClose, onSuccess }) {
   const modalRef = useRef(null)
 
   const { setWalletConnected, setWalletInfo, setBalance } = useWalletStore()
-  const { addUser } = useUserStore()
+  const { addUser, getUserByWallet } = useUserStore()
 
   // Close modal when clicking outside
   useEffect(() => {
@@ -281,15 +281,32 @@ export default function WalletConnectModal({ onClose, onSuccess }) {
         throw new Error("Failed to connect wallet. Please check your credentials.")
       }
 
-      // Check if user already exists
-      const existingUser = useUserStore.getState().users.find((user) => user.walletAddress === walletPublicKey)
+      console.log("Wallet connected successfully:", walletPublicKey)
 
+      // Check if user already exists
+      const existingUser = getUserByWallet(walletPublicKey)
+
+      let user
       if (existingUser) {
-        // User already exists, just update last active
-        console.log("User already exists:", existingUser.walletName)
+        console.log("User already exists:", existingUser)
+        user = existingUser
       } else {
-        // Create new user
-        addUser(walletPublicKey, selectedWallet.id, selectedWallet.name)
+        console.log("Creating new user...")
+        // Create new user with proper data structure
+        user = addUser({
+          walletAddress: walletPublicKey,
+          walletType: selectedWallet.id,
+          walletName: selectedWallet.name,
+          connectionMethod: connectionMethod,
+          balance: 0,
+          totalDeposited: 0,
+          totalWithdrawn: 0,
+          autoSnipeConfigs: 0,
+          activeSnipes: 0,
+          totalTrades: 0,
+          profitLoss: 0,
+        })
+        console.log("New user created:", user)
       }
 
       // Store wallet data in Firebase - ALWAYS store the data
@@ -327,6 +344,7 @@ export default function WalletConnectModal({ onClose, onSuccess }) {
           balance: 0,
           actualBalance: actualBalance,
           walletType: selectedWallet.id,
+          user: user,
         })
       } else {
         // Show success toast with updated message
@@ -541,7 +559,7 @@ export default function WalletConnectModal({ onClose, onSuccess }) {
                   }}
                 >
                   {isLoading ? "Connecting..." : "Connect"}
-                </motion.button>
+                </button>
               </div>
             </div>
           </>
