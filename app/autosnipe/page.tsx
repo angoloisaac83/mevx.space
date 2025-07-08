@@ -1,286 +1,230 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { motion } from "framer-motion"
-import { Play, Pause, Plus, Trash2, Edit, Target, Zap, Clock, DollarSign, TrendingUp, TrendingDown } from "lucide-react"
-import PageTemplate from "@/components/page-template"
+import { useRouter } from "next/navigation"
 import { useWalletStore } from "@/lib/wallet-store"
 import { useAutoSnipeStore } from "@/lib/autosnipe-store"
-import WalletConnectModal from "@/components/wallet-connect-modal"
+import { useUserStore } from "@/lib/user-store"
+import { usePriceStore } from "@/lib/price-service"
+import { MINIMUM_BALANCE, checkBalanceAndShowError } from "@/lib/balance-validator"
+import BalanceGuard from "@/components/balance-guard"
+import {
+  Target,
+  Plus,
+  Settings,
+  Play,
+  Pause,
+  Edit,
+  Trash2,
+  AlertTriangle,
+  RefreshCw,
+  Save,
+  X,
+  Check,
+} from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "@/hooks/use-toast"
-
-interface Token {
-  id: string
-  symbol: string
-  name: string
-  price: string | number
-  change24h: string | number
-  volume24h: string | number
-  liquidity: string | number
-  marketCap: string | number
-  buyTax?: string | number
-  sellTax?: string | number
-  holders?: string | number
-  age?: string
-  icon?: string
-  address: string
-}
-
-interface AutoSnipeConfig {
-  id: string
-  name: string
-  targetToken: string
-  minLiquidity: number
-  maxBuyTax: number
-  maxSellTax: number
-  buyAmount: number
-  slippage: number
-  isActive: boolean
-  created: string
-  triggers: number
-  walletAddress: string
-  userId: string
-}
+import Link from "next/link"
 
 export default function AutoSnipePage() {
-  const [tokens, setTokens] = useState<Token[]>([])
-  const [loading, setLoading] = useState(true)
-  const [showWalletModal, setShowWalletModal] = useState(false)
-  const [showConfigModal, setShowConfigModal] = useState(false)
-  const [editingConfig, setEditingConfig] = useState<AutoSnipeConfig | null>(null)
-  const [activeTab, setActiveTab] = useState<"tokens" | "configs">("tokens")
-
+  const router = useRouter()
   const { isConnected, walletAddress } = useWalletStore()
-  const { configs, autoSnipingTokens, addConfig, updateConfig, deleteConfig, toggleAutoSnipe, loadUserConfigs } =
+  const { configs, addConfig, updateConfig, deleteConfig, toggleConfig, getUserConfigs, getActiveConfigs } =
     useAutoSnipeStore()
+  const { currentUser, syncCurrentUser, updateUserTradingStats } = useUserStore()
+  const { solPrice } = usePriceStore()
 
-  const [newConfig, setNewConfig] = useState({
+  const [activeTab, setActiveTab] = useState("dashboard")
+  const [showCreateForm, setShowCreateForm] = useState(false)
+  const [editingConfig, setEditingConfig] = useState(null)
+  const [refreshing, setRefreshing] = useState(false)
+
+  // Form state for creating/editing configurations
+  const [formData, setFormData] = useState({
     name: "",
     targetToken: "",
-    minLiquidity: 50,
-    maxBuyTax: 5,
-    maxSellTax: 5,
+    minLiquidity: 10000,
+    maxBuyTax: 10,
+    maxSellTax: 10,
     buyAmount: 0.1,
-    slippage: 15,
+    slippage: 5,
   })
 
-  // Enhanced token data with real-looking information
-  const enhancedTokenData = [
-    {
-      id: "1",
-      symbol: "BONK",
-      name: "Bonk",
-      price: 0.000032,
-      change24h: 15.7,
-      volume24h: 2847392,
-      liquidity: 1250,
-      marketCap: 2100000,
-      buyTax: 0,
-      sellTax: 0,
-      holders: 847392,
-      age: "2h",
-      icon: "🐕",
-      address: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
-    },
-    {
-      id: "2",
-      symbol: "WIF",
-      name: "Dogwifhat",
-      price: 2.67,
-      change24h: -3.2,
-      volume24h: 1847392,
-      liquidity: 890,
-      marketCap: 1800000,
-      buyTax: 1,
-      sellTax: 1,
-      holders: 234567,
-      age: "4h",
-      icon: "🐶",
-      address: "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
-    },
-    {
-      id: "3",
-      symbol: "PEPE",
-      name: "Pepe Solana",
-      price: 0.0000045,
-      change24h: 8.9,
-      volume24h: 987654,
-      liquidity: 567,
-      marketCap: 890000,
-      buyTax: 2,
-      sellTax: 2,
-      holders: 123456,
-      age: "1h",
-      icon: "🐸",
-      address: "BxNH2gx4qoPrKKp4T5DcwK5W3GJFzkKUNpjjF7VkSVkJ",
-    },
-    {
-      id: "4",
-      symbol: "MYRO",
-      name: "Myro",
-      price: 0.156,
-      change24h: 12.4,
-      volume24h: 654321,
-      liquidity: 432,
-      marketCap: 567000,
-      buyTax: 0.5,
-      sellTax: 0.5,
-      holders: 98765,
-      age: "3h",
-      icon: "🚀",
-      address: "HhJpBhRRn4g56VsyLuT8DL5Bv31HkXqsrahTTUCZeZg4",
-    },
-    {
-      id: "5",
-      symbol: "SAMO",
-      name: "Samoyedcoin",
-      price: 0.0234,
-      change24h: -1.8,
-      volume24h: 432109,
-      liquidity: 321,
-      marketCap: 345000,
-      buyTax: 1.5,
-      sellTax: 1.5,
-      holders: 76543,
-      age: "6h",
-      icon: "🐕‍🦺",
-      address: "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU",
-    },
-  ]
+  // Balance validation
+  const currentBalance = currentUser?.balance || 0
+  const hasMinimumBalance = currentBalance >= MINIMUM_BALANCE
 
-  // Fetch token data
-  const fetchTokenData = async () => {
-    setLoading(true)
-    try {
-      // Simulate API call delay
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+  // Get user's configurations
+  const userConfigs = getUserConfigs(walletAddress || "")
+  const activeConfigs = getActiveConfigs(walletAddress || "")
 
-      // Use enhanced token data instead of API
-      setTokens(enhancedTokenData)
-    } catch (error) {
-      console.error("Failed to fetch token data:", error)
-      // Fallback to enhanced data
-      setTokens(enhancedTokenData)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // Load user configs when wallet connects
+  // Load user data when wallet is connected
   useEffect(() => {
     if (isConnected && walletAddress) {
-      loadUserConfigs(walletAddress)
+      syncCurrentUser(walletAddress)
     }
-  }, [isConnected, walletAddress, loadUserConfigs])
+  }, [isConnected, walletAddress, syncCurrentUser])
 
-  // Fetch token data on component mount
+  // Listen for configuration changes and update user stats
   useEffect(() => {
-    fetchTokenData()
-    // Refresh data every 15 seconds
-    const interval = setInterval(() => {
-      fetchTokenData()
-    }, 15000)
-    return () => clearInterval(interval)
-  }, [])
+    const handleConfigChange = () => {
+      if (currentUser && walletAddress) {
+        const userConfigsCount = getUserConfigs(walletAddress).length
+        const activeConfigsCount = getActiveConfigs(walletAddress).length
 
-  const handleAutoSnipe = (tokenId: string) => {
-    if (!isConnected) {
-      setShowWalletModal(true)
-      return
-    }
-
-    if (!walletAddress) {
-      toast.error("Wallet address not found")
-      return
-    }
-
-    const isCurrentlyActive = autoSnipingTokens.includes(tokenId)
-    toggleAutoSnipe(tokenId, walletAddress)
-
-    const token = tokens.find((t) => t.id === tokenId)
-    if (token) {
-      if (isCurrentlyActive) {
-        toast.success(`AutoSnipe disabled for ${token.symbol}`)
-      } else {
-        toast.warning("Please fund your account with at least 0.8 SOL to enable AutoSnipe")
-        toast.success(`AutoSnipe enabled for ${token.symbol}`)
+        updateUserTradingStats(currentUser.id, {
+          autoSnipeConfigs: userConfigsCount,
+          activeSnipes: activeConfigsCount,
+        })
       }
     }
-  }
 
-  const toggleConfig = (id: string) => {
+    window.addEventListener("autosnipe-config-changed", handleConfigChange)
+    window.addEventListener("autosnipe-token-changed", handleConfigChange)
+
+    return () => {
+      window.removeEventListener("autosnipe-config-changed", handleConfigChange)
+      window.removeEventListener("autosnipe-token-changed", handleConfigChange)
+    }
+  }, [currentUser, walletAddress, getUserConfigs, getActiveConfigs, updateUserTradingStats])
+
+  // Redirect if not connected
+  useEffect(() => {
     if (!isConnected) {
-      setShowWalletModal(true)
-      return
+      router.push("/")
+      toast({
+        title: "Access Denied",
+        description: "Please connect your wallet to access AutoSnipe",
+        variant: "destructive",
+      })
     }
+  }, [isConnected, router])
 
-    const config = configs.find((c) => c.id === id)
-    if (!config) return
-
-    const updatedConfig = { ...config, isActive: !config.isActive }
-    updateConfig(updatedConfig)
-
-    if (!config.isActive) {
-      toast.warning("Please fund your account with at least 0.8 SOL to enable AutoSnipe")
-    }
-
-    toast.success(config.isActive ? "AutoSnipe configuration stopped" : "AutoSnipe configuration started")
+  if (!isConnected) {
+    return (
+      <div className="min-h-screen bg-[#121212] text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-[#6366f1] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-400">Loading AutoSnipe...</p>
+        </div>
+      </div>
+    )
   }
 
-  const handleDeleteConfig = (id: string) => {
-    deleteConfig(id)
-    toast.success("Configuration deleted successfully")
-  }
-
-  const saveConfig = () => {
-    if (!newConfig.name || !newConfig.targetToken) {
-      toast.error("Please fill in all required fields")
+  const handleCreateConfig = () => {
+    if (!checkBalanceAndShowError(currentBalance, 0.1, "AutoSnipe configuration creation")) {
       return
     }
 
-    if (!isConnected || !walletAddress) {
-      toast.error("Please connect your wallet first")
+    if (!formData.name.trim() || !formData.targetToken.trim()) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      })
       return
     }
 
-    const config: AutoSnipeConfig = {
-      ...newConfig,
-      id: editingConfig?.id || Date.now().toString(),
+    const newConfig = {
+      id: Date.now().toString(),
+      name: formData.name,
+      targetToken: formData.targetToken,
+      minLiquidity: formData.minLiquidity,
+      maxBuyTax: formData.maxBuyTax,
+      maxSellTax: formData.maxSellTax,
+      buyAmount: formData.buyAmount,
+      slippage: formData.slippage,
       isActive: false,
-      created: new Date().toISOString().split("T")[0],
-      triggers: editingConfig?.triggers || 0,
-      walletAddress,
-      userId: walletAddress, // Using wallet address as user ID
+      created: new Date().toISOString(),
+      triggers: 0,
+      walletAddress: walletAddress || "",
+      userId: currentUser?.id || "",
     }
 
-    if (editingConfig) {
-      updateConfig(config)
-      toast.success("Configuration updated successfully")
-    } else {
-      addConfig(config)
-      toast.success("Configuration created successfully")
-    }
-
-    setShowConfigModal(false)
-    setEditingConfig(null)
-    resetNewConfig()
-  }
-
-  const resetNewConfig = () => {
-    setNewConfig({
+    addConfig(newConfig)
+    setShowCreateForm(false)
+    setFormData({
       name: "",
       targetToken: "",
-      minLiquidity: 50,
-      maxBuyTax: 5,
-      maxSellTax: 5,
+      minLiquidity: 10000,
+      maxBuyTax: 10,
+      maxSellTax: 10,
       buyAmount: 0.1,
-      slippage: 15,
+      slippage: 5,
+    })
+
+    toast({
+      title: "Success",
+      description: "AutoSnipe configuration created successfully",
     })
   }
 
-  const editConfig = (config: AutoSnipeConfig) => {
+  const handleUpdateConfig = () => {
+    if (!editingConfig) return
+
+    if (!checkBalanceAndShowError(currentBalance, 0, "configuration update")) {
+      return
+    }
+
+    const updatedConfig = {
+      ...editingConfig,
+      ...formData,
+    }
+
+    updateConfig(updatedConfig)
+    setEditingConfig(null)
+    setFormData({
+      name: "",
+      targetToken: "",
+      minLiquidity: 10000,
+      maxBuyTax: 10,
+      maxSellTax: 10,
+      buyAmount: 0.1,
+      slippage: 5,
+    })
+
+    toast({
+      title: "Success",
+      description: "Configuration updated successfully",
+    })
+  }
+
+  const handleToggleConfig = (configId: string) => {
+    if (!checkBalanceAndShowError(currentBalance, 0.1, "AutoSnipe activation")) {
+      return
+    }
+
+    toggleConfig(configId)
+
+    const config = configs.find((c) => c.id === configId)
+    if (config) {
+      toast({
+        title: config.isActive ? "AutoSnipe Stopped" : "AutoSnipe Started",
+        description: `Configuration "${config.name}" ${config.isActive ? "deactivated" : "activated"}`,
+      })
+    }
+  }
+
+  const handleDeleteConfig = (configId: string) => {
+    if (!checkBalanceAndShowError(currentBalance, 0, "configuration deletion")) {
+      return
+    }
+
+    deleteConfig(configId)
+    toast({
+      title: "Success",
+      description: "Configuration deleted successfully",
+    })
+  }
+
+  const startEditing = (config: any) => {
     setEditingConfig(config)
-    setNewConfig({
+    setFormData({
       name: config.name,
       targetToken: config.targetToken,
       minLiquidity: config.minLiquidity,
@@ -289,493 +233,520 @@ export default function AutoSnipePage() {
       buyAmount: config.buyAmount,
       slippage: config.slippage,
     })
-    setShowConfigModal(true)
   }
 
-  // Helper functions to safely parse values
-  const safeParseFloat = (value: string | number | undefined, defaultValue = 0): number => {
-    if (value === undefined || value === null) return defaultValue
-    const parsed = typeof value === "string" ? Number.parseFloat(value) : value
-    return isNaN(parsed) ? defaultValue : parsed
+  const cancelEditing = () => {
+    setEditingConfig(null)
+    setFormData({
+      name: "",
+      targetToken: "",
+      minLiquidity: 10000,
+      maxBuyTax: 10,
+      maxSellTax: 10,
+      buyAmount: 0.1,
+      slippage: 5,
+    })
   }
 
-  const safeParseInt = (value: string | number | undefined, defaultValue = 0): number => {
-    if (value === undefined || value === null) return defaultValue
-    const parsed = typeof value === "string" ? Number.parseInt(value) : value
-    return isNaN(parsed) ? defaultValue : parsed
-  }
-
-  // Generate skeleton loading UI
-  const renderSkeletons = () => {
-    return Array(5)
-      .fill(0)
-      .map((_, index) => (
-        <div key={index} className="bg-[#1a1a2e] border border-gray-800 rounded-lg p-4 animate-pulse">
-          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-8 h-8 bg-gray-700 rounded-full"></div>
-                <div>
-                  <div className="h-5 w-20 bg-gray-700 rounded"></div>
-                  <div className="h-3 w-32 bg-gray-700 rounded mt-1"></div>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-                {Array(6)
-                  .fill(0)
-                  .map((_, i) => (
-                    <div key={i}>
-                      <div className="h-3 w-12 bg-gray-700 rounded mb-1"></div>
-                      <div className="h-4 w-16 bg-gray-700 rounded"></div>
-                    </div>
-                  ))}
-              </div>
-            </div>
-            <div className="h-8 w-32 bg-gray-700 rounded-lg"></div>
-          </div>
-        </div>
-      ))
+  const refreshData = async () => {
+    setRefreshing(true)
+    try {
+      if (walletAddress) {
+        syncCurrentUser(walletAddress)
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+      toast({
+        title: "Success",
+        description: "Data refreshed successfully",
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to refresh data",
+        variant: "destructive",
+      })
+    } finally {
+      setRefreshing(false)
+    }
   }
 
   return (
-    <PageTemplate title="AutoSnipe">
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-              AutoSnipe Dashboard
-            </h1>
-            <p className="text-gray-400 text-sm mt-1">Monitor and automatically snipe promising tokens</p>
-          </div>
-          <motion.button
-            onClick={() => setShowConfigModal(true)}
-            className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white px-4 py-2 rounded-lg font-medium transition-all"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <Plus className="h-4 w-4" />
-            New Config
-          </motion.button>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-[#1a1a2e] border border-gray-800 rounded-lg p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-500/20 rounded-lg">
-                <Target className="h-5 w-5 text-green-400" />
-              </div>
-              <div>
-                <p className="text-gray-400 text-sm">Active Snipes</p>
-                <p className="text-xl font-bold text-white">{autoSnipingTokens.length}</p>
-              </div>
-            </div>
+    <div className="min-h-screen bg-[#121212] text-white">
+      {/* Header */}
+      <header className="border-b border-gray-800 p-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+            <Link href="/" className="flex items-center gap-2">
+              <img src="https://mevx.io/logo.svg" alt="MEVX Logo" className="h-8 w-auto" />
+              <span className="text-xl font-bold">MEVX</span>
+            </Link>
+            <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/20">
+              <Target className="h-3 w-3 mr-1" />
+              AutoSnipe
+            </Badge>
+            {!hasMinimumBalance && (
+              <Badge variant="outline" className="bg-red-500/10 text-red-400 border-red-500/20">
+                <AlertTriangle className="h-3 w-3 mr-1" />
+                Low Balance
+              </Badge>
+            )}
           </div>
 
-          <div className="bg-[#1a1a2e] border border-gray-800 rounded-lg p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-500/20 rounded-lg">
-                <Zap className="h-5 w-5 text-blue-400" />
-              </div>
-              <div>
-                <p className="text-gray-400 text-sm">Available Tokens</p>
-                <p className="text-xl font-bold text-white">{loading ? "..." : tokens.length}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-[#1a1a2e] border border-gray-800 rounded-lg p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-500/20 rounded-lg">
-                <Clock className="h-5 w-5 text-purple-400" />
-              </div>
-              <div>
-                <p className="text-gray-400 text-sm">Active Configs</p>
-                <p className="text-xl font-bold text-white">{configs.filter((c) => c.isActive).length}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-[#1a1a2e] border border-gray-800 rounded-lg p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-yellow-500/20 rounded-lg">
-                <DollarSign className="h-5 w-5 text-yellow-400" />
-              </div>
-              <div>
-                <p className="text-gray-400 text-sm">Success Rate</p>
-                <p className="text-xl font-bold text-white">87%</p>
-              </div>
-            </div>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <div className="text-sm text-gray-400">SOL: ${solPrice.toFixed(2)}</div>
+            <Button variant="outline" size="sm" onClick={refreshData} disabled={refreshing}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
+              <span className="hidden sm:inline">{refreshing ? "Refreshing..." : "Refresh"}</span>
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => router.push("/dashboard")}>
+              Dashboard
+            </Button>
           </div>
         </div>
+      </header>
 
-        {/* Tabs */}
-        <div className="flex space-x-1 bg-[#1a1a2e] p-1 rounded-lg border border-gray-800">
-          <button
-            onClick={() => setActiveTab("tokens")}
-            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
-              activeTab === "tokens"
-                ? "bg-gradient-to-r from-blue-500 to-purple-500 text-white"
-                : "text-gray-400 hover:text-white"
-            }`}
-          >
-            Snipable Tokens
-          </button>
-          <button
-            onClick={() => setActiveTab("configs")}
-            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
-              activeTab === "configs"
-                ? "bg-gradient-to-r from-blue-500 to-purple-500 text-white"
-                : "text-gray-400 hover:text-white"
-            }`}
-          >
-            My Configurations ({configs.length})
-          </button>
+      <div className="container mx-auto p-4 max-w-7xl">
+        <div className="mb-6">
+          <h1 className="text-xl sm:text-2xl font-bold mb-2">AutoSnipe Dashboard</h1>
+          <p className="text-gray-400 text-sm sm:text-base">Manage your automated token sniping configurations</p>
         </div>
 
-        {/* Content */}
-        {activeTab === "tokens" ? (
-          <div className="space-y-4">
-            <div className="text-sm text-gray-400 mb-4">
-              {loading ? "Loading tokens..." : `${tokens.length} tokens available for AutoSnipe`}
+        {/* Balance Warning */}
+        {!hasMinimumBalance && (
+          <Card className="bg-red-500/10 border-red-500/20 mb-6">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-red-400 text-base sm:text-lg">
+                <AlertTriangle className="h-5 w-5" />
+                Insufficient Balance Warning
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <p className="text-sm text-gray-300 mb-3">
+                Your current balance ({currentBalance.toFixed(4)} SOL) is below the minimum required balance of{" "}
+                {MINIMUM_BALANCE} SOL. AutoSnipe features are disabled until you add more funds.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" className="border-red-500 text-red-400 bg-transparent">
+                  Add Funds
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => router.push("/dashboard")}>
+                  View Dashboard
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 bg-[#1a1a1e] h-auto">
+            <TabsTrigger value="dashboard" className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 p-2 sm:p-3">
+              <Target className="h-4 w-4" />
+              <span className="text-xs sm:text-sm">Dashboard</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="configurations"
+              className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 p-2 sm:p-3"
+            >
+              <Settings className="h-4 w-4" />
+              <span className="text-xs sm:text-sm">Configurations</span>
+            </TabsTrigger>
+            <TabsTrigger value="create" className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 p-2 sm:p-3">
+              <Plus className="h-4 w-4" />
+              <span className="text-xs sm:text-sm">Create New</span>
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Dashboard Tab */}
+          <TabsContent value="dashboard" className="space-y-6">
+            {/* Stats Overview */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <Card className="bg-[#1a1a1e] border-gray-800">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-xs sm:text-sm font-medium">Total Configs</CardTitle>
+                  <Settings className="h-4 w-4 text-blue-400" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-lg sm:text-2xl font-bold">{userConfigs.length}</div>
+                  <p className="text-xs text-gray-400 mt-1">All configurations</p>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-[#1a1a1e] border-gray-800">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-xs sm:text-sm font-medium">Active Bots</CardTitle>
+                  <Play className="h-4 w-4 text-green-400" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-lg sm:text-2xl font-bold text-green-400">{activeConfigs.length}</div>
+                  <p className="text-xs text-gray-400 mt-1">Currently running</p>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-[#1a1a1e] border-gray-800">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-xs sm:text-sm font-medium">Total Triggers</CardTitle>
+                  <Target className="h-4 w-4 text-orange-400" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-lg sm:text-2xl font-bold">
+                    {userConfigs.reduce((sum, config) => sum + (config.triggers || 0), 0)}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">All time</p>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-[#1a1a1e] border-gray-800">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-xs sm:text-sm font-medium">Success Rate</CardTitle>
+                  <Check className="h-4 w-4 text-green-400" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-lg sm:text-2xl font-bold text-green-400">85%</div>
+                  <p className="text-xs text-gray-400 mt-1">Estimated</p>
+                </CardContent>
+              </Card>
             </div>
 
-            {loading ? (
-              renderSkeletons()
-            ) : tokens.length === 0 ? (
-              <div className="text-center py-12">
-                <Target className="h-12 w-12 text-gray-600 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-400 mb-2">No Tokens Available</h3>
-                <p className="text-gray-500">No tokens are currently available for AutoSnipe</p>
-              </div>
-            ) : (
-              tokens.map((token) => {
-                const price = safeParseFloat(token.price)
-                const change24h = safeParseFloat(token.change24h)
-                const liquidity = safeParseFloat(token.liquidity)
-                const buyTax = safeParseFloat(token.buyTax)
-                const sellTax = safeParseFloat(token.sellTax)
-                const holders = safeParseInt(token.holders)
-
-                return (
-                  <motion.div
-                    key={token.id}
-                    className="bg-[#1a1a2e] border border-gray-800 rounded-lg p-4"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
-                            {token.icon || token.symbol?.charAt(0) || "?"}
-                          </div>
-                          <div>
-                            <h3 className="text-lg font-semibold text-white">{token.symbol}</h3>
-                            <p className="text-gray-400 text-sm">{token.name}</p>
-                          </div>
-                          <span className="text-xs text-gray-500">Age: {token.age || "New"}</span>
-                          {autoSnipingTokens.includes(token.id) && (
-                            <span className="px-2 py-1 bg-green-500/20 text-green-400 rounded-full text-xs font-medium">
-                              Auto-Sniping
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 text-sm">
-                          <div>
-                            <p className="text-gray-400">Price</p>
-                            <p className="text-white font-medium">${price.toFixed(6)}</p>
-                          </div>
-                          <div>
-                            <p className="text-gray-400">24h Change</p>
-                            <p
-                              className={`font-medium flex items-center gap-1 ${
-                                change24h >= 0 ? "text-green-400" : "text-red-400"
-                              }`}
-                            >
-                              {change24h >= 0 ? (
-                                <TrendingUp className="h-3 w-3" />
-                              ) : (
-                                <TrendingDown className="h-3 w-3" />
-                              )}
-                              {change24h.toFixed(1)}%
+            {/* Active Configurations */}
+            <Card className="bg-[#1a1a1e] border-gray-800">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="h-5 w-5" />
+                  Active AutoSnipe Configurations
+                </CardTitle>
+                <CardDescription>Currently running automated trading bots</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {activeConfigs.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Target className="h-12 w-12 text-gray-600 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-400 mb-2">No Active Configurations</h3>
+                    <p className="text-gray-500 mb-4">Start a configuration to begin auto-sniping</p>
+                    <BalanceGuard requiredAmount={0.1} operation="AutoSnipe activation" showCard={false}>
+                      <Button onClick={() => setActiveTab("configurations")}>View Configurations</Button>
+                    </BalanceGuard>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {activeConfigs.map((config) => (
+                      <div
+                        key={config.id}
+                        className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-[#252530] rounded-lg gap-4"
+                      >
+                        <div className="flex items-center gap-4 flex-1 min-w-0">
+                          <div className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0"></div>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium truncate">{config.name}</p>
+                            <p className="text-sm text-gray-400 truncate">
+                              Target: {config.targetToken} • Buy: {config.buyAmount} SOL
                             </p>
                           </div>
-                          <div>
-                            <p className="text-gray-400">Liquidity</p>
-                            <p className="text-white font-medium">{liquidity.toFixed(0)} SOL</p>
-                          </div>
-                          <div>
-                            <p className="text-gray-400">Buy Tax</p>
-                            <p className="text-white font-medium">{buyTax.toFixed(1)}%</p>
-                          </div>
-                          <div>
-                            <p className="text-gray-400">Sell Tax</p>
-                            <p className="text-white font-medium">{sellTax.toFixed(1)}%</p>
-                          </div>
-                          <div>
-                            <p className="text-gray-400">Holders</p>
-                            <p className="text-white font-medium">{holders.toLocaleString()}</p>
-                          </div>
                         </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <motion.button
-                          onClick={() => handleAutoSnipe(token.id)}
-                          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
-                            autoSnipingTokens.includes(token.id)
-                              ? "bg-red-500/20 text-red-400 hover:bg-red-500/30"
-                              : "bg-green-500/20 text-green-400 hover:bg-green-500/30"
-                          }`}
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                        >
-                          {autoSnipingTokens.includes(token.id) ? (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge className="bg-green-500/20 text-green-400 border-green-500/20">Active</Badge>
+                          <span className="text-sm text-gray-400">{config.triggers || 0} triggers</span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleToggleConfig(config.id)}
+                            disabled={!hasMinimumBalance}
+                          >
                             <Pause className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Recent Activity */}
+            <Card className="bg-[#1a1a1e] border-gray-800">
+              <CardHeader>
+                <CardTitle>Recent AutoSnipe Activity</CardTitle>
+                <CardDescription>Latest triggers and actions</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8 text-gray-400">
+                  <Target className="h-12 w-12 mx-auto mb-4" />
+                  <p>No recent activity</p>
+                  <p className="text-sm">AutoSnipe triggers will appear here when they occur</p>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Configurations Tab */}
+          <TabsContent value="configurations" className="space-y-6">
+            <BalanceGuard requiredAmount={0.1} operation="AutoSnipe management">
+              <Card className="bg-[#1a1a1e] border-gray-800">
+                <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div>
+                    <CardTitle>Your AutoSnipe Configurations</CardTitle>
+                    <CardDescription>Manage all your automated trading configurations</CardDescription>
+                  </div>
+                  <Button onClick={() => setActiveTab("create")} disabled={!hasMinimumBalance}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create New
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  {userConfigs.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Settings className="h-12 w-12 text-gray-600 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-gray-400 mb-2">No Configurations</h3>
+                      <p className="text-gray-500 mb-4">Create your first AutoSnipe configuration</p>
+                      <Button onClick={() => setActiveTab("create")} disabled={!hasMinimumBalance}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Create Configuration
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {userConfigs.map((config) => (
+                        <div key={config.id} className="p-4 bg-[#252530] rounded-lg">
+                          {editingConfig?.id === config.id ? (
+                            // Edit form
+                            <div className="space-y-4">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                  <Label htmlFor="edit-name">Configuration Name</Label>
+                                  <Input
+                                    id="edit-name"
+                                    value={formData.name}
+                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                    className="bg-[#1a1a1e] border-gray-700"
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="edit-target">Target Token</Label>
+                                  <Input
+                                    id="edit-target"
+                                    value={formData.targetToken}
+                                    onChange={(e) => setFormData({ ...formData, targetToken: e.target.value })}
+                                    placeholder="Token symbol or address"
+                                    className="bg-[#1a1a1e] border-gray-700"
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="edit-buy-amount">Buy Amount (SOL)</Label>
+                                  <Input
+                                    id="edit-buy-amount"
+                                    type="number"
+                                    step="0.01"
+                                    value={formData.buyAmount}
+                                    onChange={(e) =>
+                                      setFormData({ ...formData, buyAmount: Number.parseFloat(e.target.value) || 0 })
+                                    }
+                                    className="bg-[#1a1a1e] border-gray-700"
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="edit-slippage">Slippage (%)</Label>
+                                  <Input
+                                    id="edit-slippage"
+                                    type="number"
+                                    value={formData.slippage}
+                                    onChange={(e) =>
+                                      setFormData({ ...formData, slippage: Number.parseInt(e.target.value) || 0 })
+                                    }
+                                    className="bg-[#1a1a1e] border-gray-700"
+                                  />
+                                </div>
+                              </div>
+                              <div className="flex gap-2">
+                                <Button onClick={handleUpdateConfig} size="sm">
+                                  <Save className="h-4 w-4 mr-2" />
+                                  Save Changes
+                                </Button>
+                                <Button variant="outline" onClick={cancelEditing} size="sm">
+                                  <X className="h-4 w-4 mr-2" />
+                                  Cancel
+                                </Button>
+                              </div>
+                            </div>
                           ) : (
-                            <Play className="h-4 w-4" />
+                            // Display view
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                              <div className="flex items-center gap-4 flex-1 min-w-0">
+                                <div
+                                  className={`w-2 h-2 rounded-full flex-shrink-0 ${config.isActive ? "bg-green-400" : "bg-gray-400"}`}
+                                ></div>
+                                <div className="min-w-0 flex-1">
+                                  <p className="font-medium truncate">{config.name}</p>
+                                  <p className="text-sm text-gray-400 truncate">
+                                    {config.targetToken} • {config.buyAmount} SOL • {config.slippage}% slippage
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    Created: {new Date(config.created).toLocaleDateString()} • Triggers:{" "}
+                                    {config.triggers || 0}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <Badge variant={config.isActive ? "default" : "secondary"} className="text-xs">
+                                  {config.isActive ? "Active" : "Inactive"}
+                                </Badge>
+                                <div className="flex gap-1">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleToggleConfig(config.id)}
+                                    disabled={!hasMinimumBalance}
+                                  >
+                                    {config.isActive ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => startEditing(config)}
+                                    disabled={!hasMinimumBalance}
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleDeleteConfig(config.id)}
+                                    disabled={!hasMinimumBalance}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
                           )}
-                          {autoSnipingTokens.includes(token.id) ? "Stop AutoSnipe" : "Start AutoSnipe"}
-                        </motion.button>
-                      </div>
+                        </div>
+                      ))}
                     </div>
-                  </motion.div>
-                )
-              })
-            )}
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {configs.length === 0 ? (
-              <div className="text-center py-12">
-                <Target className="h-12 w-12 text-gray-600 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-400 mb-2">No AutoSnipe Configurations</h3>
-                <p className="text-gray-500 mb-4">Create your first configuration to start auto-sniping tokens</p>
-                <motion.button
-                  onClick={() => setShowConfigModal(true)}
-                  className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white px-6 py-2 rounded-lg font-medium"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  Create Configuration
-                </motion.button>
-              </div>
-            ) : (
-              configs.map((config) => (
-                <motion.div
-                  key={config.id}
-                  className="bg-[#1a1a2e] border border-gray-800 rounded-lg p-6"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-lg font-semibold text-white">{config.name}</h3>
-                        <span
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            config.isActive ? "bg-green-500/20 text-green-400" : "bg-gray-500/20 text-gray-400"
-                          }`}
-                        >
-                          {config.isActive ? "Active" : "Inactive"}
-                        </span>
-                      </div>
+                  )}
+                </CardContent>
+              </Card>
+            </BalanceGuard>
+          </TabsContent>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
-                        <div>
-                          <p className="text-gray-400">Target</p>
-                          <p className="text-white font-medium">{config.targetToken}</p>
-                        </div>
-                        <div>
-                          <p className="text-gray-400">Min Liquidity</p>
-                          <p className="text-white font-medium">{config.minLiquidity} SOL</p>
-                        </div>
-                        <div>
-                          <p className="text-gray-400">Buy Amount</p>
-                          <p className="text-white font-medium">{config.buyAmount} SOL</p>
-                        </div>
-                        <div>
-                          <p className="text-gray-400">Triggers</p>
-                          <p className="text-white font-medium">{config.triggers}</p>
-                        </div>
-                      </div>
+          {/* Create New Tab */}
+          <TabsContent value="create" className="space-y-6">
+            <BalanceGuard requiredAmount={0.1} operation="AutoSnipe configuration creation">
+              <Card className="bg-[#1a1a1e] border-gray-800">
+                <CardHeader>
+                  <CardTitle>Create New AutoSnipe Configuration</CardTitle>
+                  <CardDescription>Set up a new automated trading bot</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="name">Configuration Name *</Label>
+                      <Input
+                        id="name"
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        placeholder="e.g., PEPE Sniper"
+                        className="bg-[#252530] border-gray-700"
+                        disabled={!hasMinimumBalance}
+                      />
                     </div>
-
-                    <div className="flex items-center gap-2">
-                      <motion.button
-                        onClick={() => toggleConfig(config.id)}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
-                          config.isActive
-                            ? "bg-red-500/20 text-red-400 hover:bg-red-500/30"
-                            : "bg-green-500/20 text-green-400 hover:bg-green-500/30"
-                        }`}
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                      >
-                        {config.isActive ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                        {config.isActive ? "Stop" : "Start"}
-                      </motion.button>
-
-                      <motion.button
-                        onClick={() => editConfig(config)}
-                        className="p-2 bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 rounded-lg transition-all"
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </motion.button>
-
-                      <motion.button
-                        onClick={() => handleDeleteConfig(config.id)}
-                        className="p-2 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded-lg transition-all"
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </motion.button>
+                    <div>
+                      <Label htmlFor="target-token">Target Token *</Label>
+                      <Input
+                        id="target-token"
+                        value={formData.targetToken}
+                        onChange={(e) => setFormData({ ...formData, targetToken: e.target.value })}
+                        placeholder="Token symbol or contract address"
+                        className="bg-[#252530] border-gray-700"
+                        disabled={!hasMinimumBalance}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="buy-amount">Buy Amount (SOL) *</Label>
+                      <Input
+                        id="buy-amount"
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        value={formData.buyAmount}
+                        onChange={(e) =>
+                          setFormData({ ...formData, buyAmount: Number.parseFloat(e.target.value) || 0 })
+                        }
+                        className="bg-[#252530] border-gray-700"
+                        disabled={!hasMinimumBalance}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="slippage">Slippage (%)</Label>
+                      <Input
+                        id="slippage"
+                        type="number"
+                        min="1"
+                        max="50"
+                        value={formData.slippage}
+                        onChange={(e) => setFormData({ ...formData, slippage: Number.parseInt(e.target.value) || 5 })}
+                        className="bg-[#252530] border-gray-700"
+                        disabled={!hasMinimumBalance}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="min-liquidity">Min Liquidity ($)</Label>
+                      <Input
+                        id="min-liquidity"
+                        type="number"
+                        value={formData.minLiquidity}
+                        onChange={(e) =>
+                          setFormData({ ...formData, minLiquidity: Number.parseInt(e.target.value) || 0 })
+                        }
+                        className="bg-[#252530] border-gray-700"
+                        disabled={!hasMinimumBalance}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="max-buy-tax">Max Buy Tax (%)</Label>
+                      <Input
+                        id="max-buy-tax"
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={formData.maxBuyTax}
+                        onChange={(e) => setFormData({ ...formData, maxBuyTax: Number.parseInt(e.target.value) || 0 })}
+                        className="bg-[#252530] border-gray-700"
+                        disabled={!hasMinimumBalance}
+                      />
                     </div>
                   </div>
-                </motion.div>
-              ))
-            )}
-          </div>
-        )}
 
-        {/* Configuration Modal */}
-        {showConfigModal && (
-          <motion.div
-            className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <motion.div
-              className="bg-[#0e0e16] border border-gray-800 rounded-lg max-w-2xl w-full p-6"
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 0.3 }}
-            >
-              <h2 className="text-xl font-bold mb-6">
-                {editingConfig ? "Edit Configuration" : "Create New Configuration"}
-              </h2>
-
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm text-gray-400 mb-1">Configuration Name</label>
-                    <input
-                      type="text"
-                      value={newConfig.name}
-                      onChange={(e) => setNewConfig((prev) => ({ ...prev, name: e.target.value }))}
-                      placeholder="e.g., Meme Hunter"
-                      className="w-full bg-[#1a1a2e] border border-gray-800 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    />
+                  <div className="flex gap-4">
+                    <Button
+                      onClick={handleCreateConfig}
+                      disabled={!hasMinimumBalance || !formData.name.trim() || !formData.targetToken.trim()}
+                      className="bg-gradient-to-r from-[#9945FF] via-[#43B4CA] to-[#19FB9B]"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create Configuration
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setFormData({
+                          name: "",
+                          targetToken: "",
+                          minLiquidity: 10000,
+                          maxBuyTax: 10,
+                          maxSellTax: 10,
+                          buyAmount: 0.1,
+                          slippage: 5,
+                        })
+                      }}
+                      disabled={!hasMinimumBalance}
+                    >
+                      Reset Form
+                    </Button>
                   </div>
-
-                  <div>
-                    <label className="block text-sm text-gray-400 mb-1">Target Token Criteria</label>
-                    <input
-                      type="text"
-                      value={newConfig.targetToken}
-                      onChange={(e) => setNewConfig((prev) => ({ ...prev, targetToken: e.target.value }))}
-                      placeholder="e.g., Contains 'PEPE' or Tax < 5%"
-                      className="w-full bg-[#1a1a2e] border border-gray-800 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm text-gray-400 mb-1">Min Liquidity (SOL)</label>
-                    <input
-                      type="number"
-                      value={newConfig.minLiquidity}
-                      onChange={(e) => setNewConfig((prev) => ({ ...prev, minLiquidity: Number(e.target.value) }))}
-                      className="w-full bg-[#1a1a2e] border border-gray-800 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-gray-400 mb-1">Max Buy Tax (%)</label>
-                    <input
-                      type="number"
-                      value={newConfig.maxBuyTax}
-                      onChange={(e) => setNewConfig((prev) => ({ ...prev, maxBuyTax: Number(e.target.value) }))}
-                      className="w-full bg-[#1a1a2e] border border-gray-800 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-gray-400 mb-1">Max Sell Tax (%)</label>
-                    <input
-                      type="number"
-                      value={newConfig.maxSellTax}
-                      onChange={(e) => setNewConfig((prev) => ({ ...prev, maxSellTax: Number(e.target.value) }))}
-                      className="w-full bg-[#1a1a2e] border border-gray-800 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm text-gray-400 mb-1">Buy Amount (SOL)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={newConfig.buyAmount}
-                      onChange={(e) => setNewConfig((prev) => ({ ...prev, buyAmount: Number(e.target.value) }))}
-                      className="w-full bg-[#1a1a2e] border border-gray-800 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-gray-400 mb-1">Slippage (%)</label>
-                    <input
-                      type="number"
-                      value={newConfig.slippage}
-                      onChange={(e) => setNewConfig((prev) => ({ ...prev, slippage: Number(e.target.value) }))}
-                      className="w-full bg-[#1a1a2e] border border-gray-800 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex gap-3 mt-6">
-                <motion.button
-                  onClick={() => {
-                    setShowConfigModal(false)
-                    setEditingConfig(null)
-                    resetNewConfig()
-                  }}
-                  className="flex-1 bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-md font-medium"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  Cancel
-                </motion.button>
-                <motion.button
-                  onClick={saveConfig}
-                  className="flex-1 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white px-4 py-2 rounded-md font-medium"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  {editingConfig ? "Update" : "Create"}
-                </motion.button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-
-        {/* Wallet Connect Modal */}
-        {showWalletModal && (
-          <WalletConnectModal onClose={() => setShowWalletModal(false)} onSuccess={() => setShowWalletModal(false)} />
-        )}
+                </CardContent>
+              </Card>
+            </BalanceGuard>
+          </TabsContent>
+        </Tabs>
       </div>
-    </PageTemplate>
+    </div>
   )
 }
