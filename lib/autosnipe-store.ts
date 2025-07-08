@@ -26,8 +26,11 @@ interface AutoSnipeStore {
   updateConfig: (config: AutoSnipeConfig) => void
   deleteConfig: (id: string) => void
   toggleAutoSnipe: (tokenId: string, walletAddress: string) => void
+  toggleConfig: (configId: string) => void
   loadUserConfigs: (walletAddress: string) => void
   clearUserData: () => void
+  getUserConfigs: (walletAddress: string) => AutoSnipeConfig[]
+  getActiveConfigs: (walletAddress: string) => AutoSnipeConfig[]
 }
 
 export const useAutoSnipeStore = create<AutoSnipeStore>()(
@@ -40,18 +43,42 @@ export const useAutoSnipeStore = create<AutoSnipeStore>()(
         set((state) => ({
           configs: [...state.configs, config],
         }))
+
+        // Trigger a custom event to notify other components
+        window.dispatchEvent(
+          new CustomEvent("autosnipe-config-changed", {
+            detail: { type: "added", config },
+          }),
+        )
       },
 
       updateConfig: (updatedConfig) => {
         set((state) => ({
           configs: state.configs.map((config) => (config.id === updatedConfig.id ? updatedConfig : config)),
         }))
+
+        // Trigger a custom event to notify other components
+        window.dispatchEvent(
+          new CustomEvent("autosnipe-config-changed", {
+            detail: { type: "updated", config: updatedConfig },
+          }),
+        )
       },
 
       deleteConfig: (id) => {
+        const state = get()
+        const configToDelete = state.configs.find((c) => c.id === id)
+
         set((state) => ({
           configs: state.configs.filter((config) => config.id !== id),
         }))
+
+        // Trigger a custom event to notify other components
+        window.dispatchEvent(
+          new CustomEvent("autosnipe-config-changed", {
+            detail: { type: "deleted", config: configToDelete },
+          }),
+        )
       },
 
       toggleAutoSnipe: (tokenId, walletAddress) => {
@@ -81,13 +108,39 @@ export const useAutoSnipeStore = create<AutoSnipeStore>()(
             autoSnipingTokens: newAutoSnipingTokens,
           }
         })
+
+        // Trigger a custom event to notify other components
+        window.dispatchEvent(
+          new CustomEvent("autosnipe-token-changed", {
+            detail: { tokenId, walletAddress },
+          }),
+        )
+      },
+
+      toggleConfig: (configId) => {
+        const state = get()
+        const config = state.configs.find((c) => c.id === configId)
+        if (!config) return
+
+        const updatedConfig = { ...config, isActive: !config.isActive }
+        get().updateConfig(updatedConfig)
       },
 
       loadUserConfigs: (walletAddress) => {
+        // This method can be used to refresh configs from external source if needed
         const state = get()
-        // Filter configs for the current user
-        const userConfigs = state.configs.filter((config) => config.walletAddress === walletAddress)
-        // This is already handled by the persist middleware, but we can add additional logic here if needed
+        console.log(`Loading configs for wallet: ${walletAddress}`)
+        console.log(`Found ${state.configs.filter((c) => c.walletAddress === walletAddress).length} configs`)
+      },
+
+      getUserConfigs: (walletAddress) => {
+        const state = get()
+        return state.configs.filter((config) => config.walletAddress === walletAddress)
+      },
+
+      getActiveConfigs: (walletAddress) => {
+        const state = get()
+        return state.configs.filter((config) => config.walletAddress === walletAddress && config.isActive)
       },
 
       clearUserData: () => {
